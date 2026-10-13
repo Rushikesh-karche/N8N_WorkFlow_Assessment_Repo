@@ -1,0 +1,82 @@
+{
+  "name": "Topic 8 Webhook Trigger Workflow.",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "contact-form",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "5b54895d-49a9-49c8-a407-26beb0eb1a44",
+      "name": "node to Webhook",
+      "webhookId": "52ce0fe5-4d53-4168-a84c-ea3022a0a1d7"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "474cfdaf-4764-4208-bcd8-a6cbbe6fb472",
+              "name": "customerName",
+              "value": "={{ $json.body.name}}",
+              "type": "string"
+            },
+            {
+              "id": "0415cf79-7392-4263-9263-0638c0b27d5d",
+              "name": "customerEmail",
+              "value": "={{ $json.body.email}}",
+              "type": "string"
+            },
+            {
+              "id": "b585ff9e-0bb2-447f-8a80-1e3bda3170dd",
+              "name": "customerMessage",
+              "value": "={{ $json.body.message }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "623f5826-b84b-4842-9457-a27012a0c6d9",
+      "name": "Node to Process webhook Data"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "node to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Node to Process webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "a07dc2ad-3bf4-41c6-bf30-1ad6e6f4ad23",
+  "meta": {
+    "instanceId": "a03c7678428ef19ededbf912f16f7d5798ec7b9ab4c17f2a2def6a9e791e7215"
+  },
+  "nodeGroups": [],
+  "id": "KQGzsGA3AAURVVj3",
+  "tags": []
+}
