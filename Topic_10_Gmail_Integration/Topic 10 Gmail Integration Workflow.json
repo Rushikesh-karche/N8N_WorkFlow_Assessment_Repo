@@ -1,0 +1,107 @@
+{
+  "name": "Topic 10 Gmail Integration Workflow.",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2f04fca0-07c4-44df-b7da-6c4abd8f9d15",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0fba1ae4-2ea8-48e5-afd9-ed1c486a284a",
+              "name": "customerName",
+              "value": "Alice Smith",
+              "type": "string"
+            },
+            {
+              "id": "30a380f1-a574-4191-ac32-8f3ec7367fa6",
+              "name": "customerEmail",
+              "value": "karcherushi2000@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "b4363557-8ea2-4d73-9986-725ab5d92542",
+      "name": "Mock Customer Data"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.customerEmail }}",
+        "subject": "=Welcome to N8N Course, and then add the expression:{{ $json.customerEmail }}",
+        "emailType": "text",
+        "message": "=Hi {{ $json.customerEmail }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "e1b44a14-17ea-489f-9b8f-85e19079f3e7",
+      "name": "Send Personalized Email.",
+      "webhookId": "8a594857-1f9d-4498-90af-1606c996d14a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "KHx0BYNbWlzY5PcZ",
+          "name": "Gmail account 19"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Mock Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Customer Data": {
+      "main": [
+        [
+          {
+            "node": "Send Personalized Email.",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "592222b8-1277-4ff1-a8c6-f318975b7f2d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a03c7678428ef19ededbf912f16f7d5798ec7b9ab4c17f2a2def6a9e791e7215"
+  },
+  "nodeGroups": [],
+  "id": "f1ryfbpil00mYgm8",
+  "tags": []
+}
