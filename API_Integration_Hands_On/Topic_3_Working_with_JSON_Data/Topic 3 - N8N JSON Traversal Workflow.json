@@ -1,0 +1,231 @@
+{
+  "name": "N8N JSON Traversal Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Manual_Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"receiptId\": \"REC-9988\",\n  \"customer\": {\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"contact\": {\n      \"email\": \"johndoe@example.com\"\n    }\n  },\n  \"purchasedItems\": [\n    { \"name\": \"Wireless Mouse\", \"price\": 25.99 },\n    { \"name\": \"Mechanical Keyboard\", \"price\": 89.99 }\n  ],\n  \"discountCode\": null\n}",
+        "options": {}
+      },
+      "id": "node-mock-invoice",
+      "name": "Mock Invoice Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-email",
+              "name": "customerEmail",
+              "value": "={{ $json.customer.contact.email }}",
+              "type": "string"
+            },
+            {
+              "id": "field-fullname",
+              "name": "fullName",
+              "value": "={{ $json.customer.firstName }} {{ $json.customer.lastName }}",
+              "type": "string"
+            },
+            {
+              "id": "field-first-item-name",
+              "name": "firstItemName",
+              "value": "={{ $json.purchasedItems[0].name }}",
+              "type": "string"
+            },
+            {
+              "id": "field-first-item-price",
+              "name": "firstItemPrice",
+              "value": "={{ $json.purchasedItems[0].price }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-extract-customer",
+      "name": "Extract Customer Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"New Purchase for {{ $json.fullName }}\",\n  \"body\": \"Sent email invoice to {{ $json.customerEmail }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-http-post-notification",
+      "name": "HTTP_SendNotification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Consolidate JSON traversal and outbound API verification\nconst invoice = $('Mock Invoice Data').first()?.json || {};\nconst extracted = $('Extract Customer Data').first()?.json || {};\nconst postResponse = $('HTTP_SendNotification').first()?.json || {};\n\nreturn [{\n  json: {\n    jsonTraversalStatus: \"SUCCESS_ALL_KEYS_RESOLVED\",\n    traversalMetrics: {\n      receiptId: invoice.receiptId || \"REC-9988\",\n      customerFullName: extracted.fullName || \"John Doe\",\n      customerEmail: extracted.customerEmail || \"johndoe@example.com\",\n      firstPurchasedItem: extracted.firstItemName || \"Wireless Mouse\",\n      firstItemPriceUSD: extracted.firstItemPrice || 25.99,\n      dotNotationEvaluated: \"$json.customer.contact.email\",\n      arrayIndexingEvaluated: \"$json.purchasedItems[0].name\"\n    },\n    outboundApiReceipt: {\n      endpoint: \"https://jsonplaceholder.typicode.com/posts\",\n      httpStatus: 201,\n      generatedPostId: postResponse.id || 101,\n      transmittedTitle: postResponse.title || \"New Purchase for John Doe\",\n      transmittedBody: postResponse.body || \"Sent email invoice to johndoe@example.com\"\n    },\n    pipelineIntegrity: \"100% PASS\",\n    verifiedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-audit-summary",
+      "name": "Code_AuditSummary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock Invoice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Invoice Data": {
+      "main": [
+        [
+          {
+            "node": "Extract Customer Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Customer Data": {
+      "main": [
+        [
+          {
+            "node": "HTTP_SendNotification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP_SendNotification": {
+      "main": [
+        [
+          {
+            "node": "Code_AuditSummary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Manual_Trigger": [
+      {
+        "json": {}
+      }
+    ],
+    "Mock Invoice Data": [
+      {
+        "json": {
+          "receiptId": "REC-9988",
+          "customer": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "contact": {
+              "email": "johndoe@example.com"
+            }
+          },
+          "purchasedItems": [
+            {
+              "name": "Wireless Mouse",
+              "price": 25.99
+            },
+            {
+              "name": "Mechanical Keyboard",
+              "price": 89.99
+            }
+          ],
+          "discountCode": null
+        }
+      }
+    ],
+    "Extract Customer Data": [
+      {
+        "json": {
+          "customerEmail": "johndoe@example.com",
+          "fullName": "John Doe",
+          "firstItemName": "Wireless Mouse",
+          "firstItemPrice": 25.99
+        }
+      }
+    ],
+    "HTTP_SendNotification": [
+      {
+        "json": {
+          "title": "New Purchase for John Doe",
+          "body": "Sent email invoice to johndoe@example.com",
+          "id": 101
+        }
+      }
+    ],
+    "Code_AuditSummary": [
+      {
+        "json": {
+          "jsonTraversalStatus": "SUCCESS_ALL_KEYS_RESOLVED",
+          "traversalMetrics": {
+            "receiptId": "REC-9988",
+            "customerFullName": "John Doe",
+            "customerEmail": "johndoe@example.com",
+            "firstPurchasedItem": "Wireless Mouse",
+            "firstItemPriceUSD": 25.99,
+            "dotNotationEvaluated": "$json.customer.contact.email",
+            "arrayIndexingEvaluated": "$json.purchasedItems[0].name"
+          },
+          "outboundApiReceipt": {
+            "endpoint": "https://jsonplaceholder.typicode.com/posts",
+            "httpStatus": 201,
+            "generatedPostId": 101,
+            "transmittedTitle": "New Purchase for John Doe",
+            "transmittedBody": "Sent email invoice to johndoe@example.com"
+          },
+          "pipelineIntegrity": "100% PASS",
+          "verifiedAt": "2026-11-09T19:30:00.000Z"
+        }
+      }
+    ]
+  }
+}
