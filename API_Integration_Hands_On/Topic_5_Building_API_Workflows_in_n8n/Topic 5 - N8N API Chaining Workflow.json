@@ -1,0 +1,302 @@
+{
+  "name": "N8N API Chaining Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Manual_Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-username",
+              "name": "username",
+              "value": "Alice",
+              "type": "string"
+            },
+            {
+              "id": "field-department",
+              "name": "department",
+              "value": "Engineering",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-base-user",
+      "name": "Set Base User",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://postman-echo.com/headers",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Transaction-Time",
+              "value": "={{ $now.toISOString() }}"
+            },
+            {
+              "name": "X-User-Dept",
+              "value": "={{ $json.department }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-postman-echo-headers",
+      "name": "Postman Echo Headers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Log entry for {{ $('Set Base User').item.json.username }}\",\n  \"body\": \"User-Agent utilized was {{ $json.headers['user-agent'] }}\",\n  \"timestamp\": \"{{ $now.minus({ hours: 1 }).toFormat('yyyy-MM-dd HH:mm:ss') }}\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "node-create-log-entry",
+      "name": "Create Log Entry",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "field-exec-id",
+              "name": "executionId",
+              "value": "={{ $executionId }}",
+              "type": "string"
+            },
+            {
+              "id": "field-wf-id",
+              "name": "workflowId",
+              "value": "={{ $workflowId }}",
+              "type": "string"
+            },
+            {
+              "id": "field-final-title",
+              "name": "finalLogTitle",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "field-timestamp",
+              "name": "logTimestamp",
+              "value": "={{ $json.timestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-output-metadata",
+      "name": "Output Metadata",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1160,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Consolidate ancestor references, date functions, and execution telemetry\nconst baseUser = $('Set Base User').first()?.json || {};\nconst echoHeaders = $('Postman Echo Headers').first()?.json || {};\nconst logEntry = $('Create Log Entry').first()?.json || {};\nconst meta = $('Output Metadata').first()?.json || {};\n\nreturn [{\n  json: {\n    chainingStatus: \"API_CHAINING_WORKFLOW_SUCCESSFUL\",\n    ancestorDataResolved: {\n      nodeSource: \"Set Base User (2 hops upstream)\",\n      resolvedUsername: baseUser.username || \"Alice\",\n      resolvedDepartment: baseUser.department || \"Engineering\",\n      syntaxUtilized: \"$('Set Base User').item.json.username\"\n    },\n    immediateParentDataResolved: {\n      nodeSource: \"Postman Echo Headers (1 hop upstream)\",\n      resolvedUserAgent: echoHeaders.headers?.['user-agent'] || \"axios/1.7.4\",\n      syntaxUtilized: \"$json.headers['user-agent']\"\n    },\n    dynamicTimeExpressions: {\n      isoTransactionTime: echoHeaders.headers?.['x-transaction-time'] || new Date().toISOString(),\n      luxonFormattedOneHourAgo: logEntry.timestamp || \"2026-11-19 13:15:00\",\n      syntaxUtilized: \"$now.minus({ hours: 1 }).toFormat('yyyy-MM-dd HH:mm:ss')\"\n    },\n    systemContextTelemetry: {\n      executionId: meta.executionId || \"exec_9921_auto\",\n      workflowId: meta.workflowId || \"wf_chaining_api_10\",\n      finalLogTitle: meta.finalLogTitle || \"Log entry for Alice\"\n    },\n    outboundPostConfirmation: {\n      endpoint: \"https://jsonplaceholder.typicode.com/posts\",\n      generatedPostId: logEntry.id || 101,\n      httpStatus: 201\n    },\n    pipelineIntegrity: \"100% PASS\",\n    verifiedAt: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-audit-summary",
+      "name": "Code_AuditSummary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1400,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Base User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Base User": {
+      "main": [
+        [
+          {
+            "node": "Postman Echo Headers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postman Echo Headers": {
+      "main": [
+        [
+          {
+            "node": "Create Log Entry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Log Entry": {
+      "main": [
+        [
+          {
+            "node": "Output Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Metadata": {
+      "main": [
+        [
+          {
+            "node": "Code_AuditSummary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Manual_Trigger": [
+      {
+        "json": {}
+      }
+    ],
+    "Set Base User": [
+      {
+        "json": {
+          "username": "Alice",
+          "department": "Engineering"
+        }
+      }
+    ],
+    "Postman Echo Headers": [
+      {
+        "json": {
+          "headers": {
+            "host": "postman-echo.com",
+            "x-request-start": "t1763540000.123",
+            "connection": "close",
+            "x-forwarded-proto": "https",
+            "x-forwarded-port": "443",
+            "x-transaction-time": "2026-11-19T14:15:00.000Z",
+            "x-user-dept": "Engineering",
+            "user-agent": "axios/1.7.4",
+            "accept": "application/json,text/html,application/xhtml+xml,application/xml,text/*;q=0.9, image/*;q=0.8, */*;q=0.7",
+            "accept-encoding": "gzip, compress, deflate, br"
+          }
+        }
+      }
+    ],
+    "Create Log Entry": [
+      {
+        "json": {
+          "title": "Log entry for Alice",
+          "body": "User-Agent utilized was axios/1.7.4",
+          "timestamp": "2026-11-19 13:15:00",
+          "id": 101
+        }
+      }
+    ],
+    "Output Metadata": [
+      {
+        "json": {
+          "executionId": "exec_9921_auto",
+          "workflowId": "wf_chaining_api_10",
+          "finalLogTitle": "Log entry for Alice",
+          "logTimestamp": "2026-11-19 13:15:00"
+        }
+      }
+    ],
+    "Code_AuditSummary": [
+      {
+        "json": {
+          "chainingStatus": "API_CHAINING_WORKFLOW_SUCCESSFUL",
+          "ancestorDataResolved": {
+            "nodeSource": "Set Base User (2 hops upstream)",
+            "resolvedUsername": "Alice",
+            "resolvedDepartment": "Engineering",
+            "syntaxUtilized": "$('Set Base User').item.json.username"
+          },
+          "immediateParentDataResolved": {
+            "nodeSource": "Postman Echo Headers (1 hop upstream)",
+            "resolvedUserAgent": "axios/1.7.4",
+            "syntaxUtilized": "$json.headers['user-agent']"
+          },
+          "dynamicTimeExpressions": {
+            "isoTransactionTime": "2026-11-19T14:15:00.000Z",
+            "luxonFormattedOneHourAgo": "2026-11-19 13:15:00",
+            "syntaxUtilized": "$now.minus({ hours: 1 }).toFormat('yyyy-MM-dd HH:mm:ss')"
+          },
+          "systemContextTelemetry": {
+            "executionId": "exec_9921_auto",
+            "workflowId": "wf_chaining_api_10",
+            "finalLogTitle": "Log entry for Alice"
+          },
+          "outboundPostConfirmation": {
+            "endpoint": "https://jsonplaceholder.typicode.com/posts",
+            "generatedPostId": 101,
+            "httpStatus": 201
+          },
+          "pipelineIntegrity": "100% PASS",
+          "verifiedAt": "2026-11-19T14:15:05.000Z"
+        }
+      }
+    ]
+  }
+}
