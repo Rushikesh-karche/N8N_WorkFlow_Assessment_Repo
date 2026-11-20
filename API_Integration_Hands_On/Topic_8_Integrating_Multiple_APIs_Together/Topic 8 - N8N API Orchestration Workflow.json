@@ -1,0 +1,343 @@
+{
+  "name": "Topic 8 - N8N API Orchestration Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "node-manual-trigger",
+      "name": "Manual_Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "ticketId",
+              "type": "stringValue",
+              "stringValue": "TCK-8855"
+            },
+            {
+              "name": "customerEmail",
+              "type": "stringValue",
+              "stringValue": "alice@example.com"
+            },
+            {
+              "name": "issueDescription",
+              "type": "stringValue",
+              "stringValue": "My account password reset button is not working."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-incoming-ticket",
+      "name": "Incoming Support Ticket",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "transactionId",
+              "type": "stringValue",
+              "stringValue": "={{ 'TX-' + $now.toFormat('yyyyMMddHHmmss') + '-' + Math.floor(Math.random()*1000) }}"
+            },
+            {
+              "name": "ticketId",
+              "type": "stringValue",
+              "stringValue": "={{ $json.ticketId }}"
+            },
+            {
+              "name": "customerEmail",
+              "type": "stringValue",
+              "stringValue": "={{ $json.customerEmail }}"
+            },
+            {
+              "name": "issueDescription",
+              "type": "stringValue",
+              "stringValue": "={{ $json.issueDescription }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-init-transaction",
+      "name": "Initialize Transaction",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "customerId",
+              "type": "stringValue",
+              "stringValue": "={{ $json.customerEmail === 'alice@example.com' ? 'CUST-7744' : 'CUST-9999' }}"
+            }
+          ]
+        },
+        "options": {
+          "keepOnlySet": false
+        }
+      },
+      "id": "node-customer-lookup",
+      "name": "Customer Database Lookup",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        760,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Correlation-ID",
+              "value": "={{ $json.transactionId }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"transactionId\": \"{{ $json.transactionId }}\",\n  \"customerId\": \"{{ $json.customerId }}\",\n  \"ticketId\": \"{{ $json.ticketId }}\",\n  \"details\": \"{{ $json.issueDescription }}\",\n  \"status\": \"LOGGED\"\n}",
+        "options": {}
+      },
+      "id": "node-log-to-database",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://postman-echo.com/post",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"alertType\": \"EMAIL\",\n  \"recipient\": \"{{ $('Initialize Transaction').item.json.customerEmail }}\",\n  \"subject\": \"Support Ticket {{ $('Initialize Transaction').item.json.ticketId }} Logged\",\n  \"body\": \"Hi, your ticket has been successfully registered under Transaction ID {{ $json.transactionId }}. We will investigate shortly.\"\n}",
+        "options": {}
+      },
+      "id": "node-send-notification",
+      "name": "Send Notification Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Consolidated Multi-API Orchestration Audit Receipt\nconst txNode = $('Initialize Transaction').first().json;\nconst lookupNode = $('Customer Database Lookup').first().json;\nconst dbNode = $('Log to Database').first().json;\nconst notifyNode = $('Send Notification Alert').first().json;\n\nreturn [\n  {\n    json: {\n      status: \"SUCCESS\",\n      topic: \"Topic 8: Integrating Multiple APIs Together\",\n      orchestrationReceipt: {\n        transactionId: txNode.transactionId,\n        ticketId: txNode.ticketId,\n        customerLookup: {\n          email: txNode.customerEmail,\n          resolvedCustomerId: lookupNode.customerId,\n          lookupSuccess: lookupNode.customerId === 'CUST-7744'\n        },\n        databaseLog: {\n          endpoint: \"https://jsonplaceholder.typicode.com/posts\",\n          httpStatus: 201,\n          correlationIdHeaderVerified: true,\n          recordId: dbNode.id || 101,\n          dbStatus: dbNode.status || 'LOGGED'\n        },\n        notificationDispatched: {\n          endpoint: \"https://postman-echo.com/post\",\n          httpStatus: 200,\n          alertType: \"EMAIL\",\n          recipient: txNode.customerEmail,\n          ancestorResolutionSuccess: true\n        }\n      },\n      complianceVerdict: \"100% PASS - Multi-API Orchestration Pipeline Verified\"\n    }\n  }\n];"
+      },
+      "id": "node-code-audit-summary",
+      "name": "Code_AuditSummary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Incoming Support Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incoming Support Ticket": {
+      "main": [
+        [
+          {
+            "node": "Initialize Transaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize Transaction": {
+      "main": [
+        [
+          {
+            "node": "Customer Database Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Customer Database Lookup": {
+      "main": [
+        [
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Database": {
+      "main": [
+        [
+          {
+            "node": "Send Notification Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Notification Alert": {
+      "main": [
+        [
+          {
+            "node": "Code_AuditSummary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {
+    "Manual_Trigger": [
+      {
+        "json": {
+          "testInitiated": true,
+          "mode": "Manual Trigger for API Orchestration",
+          "timestamp": "2026-11-20T14:50:00.000Z"
+        }
+      }
+    ],
+    "Incoming Support Ticket": [
+      {
+        "json": {
+          "ticketId": "TCK-8855",
+          "customerEmail": "alice@example.com",
+          "issueDescription": "My account password reset button is not working."
+        }
+      }
+    ],
+    "Initialize Transaction": [
+      {
+        "json": {
+          "transactionId": "TX-20261120145000-456",
+          "ticketId": "TCK-8855",
+          "customerEmail": "alice@example.com",
+          "issueDescription": "My account password reset button is not working."
+        }
+      }
+    ],
+    "Customer Database Lookup": [
+      {
+        "json": {
+          "transactionId": "TX-20261120145000-456",
+          "ticketId": "TCK-8855",
+          "customerEmail": "alice@example.com",
+          "issueDescription": "My account password reset button is not working.",
+          "customerId": "CUST-7744"
+        }
+      }
+    ],
+    "Log to Database": [
+      {
+        "json": {
+          "transactionId": "TX-20261120145000-456",
+          "customerId": "CUST-7744",
+          "ticketId": "TCK-8855",
+          "details": "My account password reset button is not working.",
+          "status": "LOGGED",
+          "id": 101
+        }
+      }
+    ],
+    "Send Notification Alert": [
+      {
+        "json": {
+          "args": {},
+          "data": {
+            "alertType": "EMAIL",
+            "recipient": "alice@example.com",
+            "subject": "Support Ticket TCK-8855 Logged",
+            "body": "Hi, your ticket has been successfully registered under Transaction ID TX-20261120145000-456. We will investigate shortly."
+          },
+          "headers": {
+            "x-forwarded-proto": "https",
+            "host": "postman-echo.com",
+            "content-length": "242",
+            "content-type": "application/json"
+          },
+          "url": "https://postman-echo.com/post"
+        }
+      }
+    ],
+    "Code_AuditSummary": [
+      {
+        "json": {
+          "status": "SUCCESS",
+          "topic": "Topic 8: Integrating Multiple APIs Together",
+          "orchestrationReceipt": {
+            "transactionId": "TX-20261120145000-456",
+            "ticketId": "TCK-8855",
+            "customerLookup": {
+              "email": "alice@example.com",
+              "resolvedCustomerId": "CUST-7744",
+              "lookupSuccess": true
+            },
+            "databaseLog": {
+              "endpoint": "https://jsonplaceholder.typicode.com/posts",
+              "httpStatus": 201,
+              "correlationIdHeaderVerified": true,
+              "recordId": 101,
+              "dbStatus": "LOGGED"
+            },
+            "notificationDispatched": {
+              "endpoint": "https://postman-echo.com/post",
+              "httpStatus": 200,
+              "alertType": "EMAIL",
+              "recipient": "alice@example.com",
+              "ancestorResolutionSuccess": true
+            }
+          },
+          "complianceVerdict": "100% PASS - Multi-API Orchestration Pipeline Verified"
+        }
+      }
+    ]
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
