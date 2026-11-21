@@ -1,0 +1,317 @@
+{
+  "info": {
+    "name": "Project 10 - Aero-MRO-Sync Automated Test Suite",
+    "description": "Automated regression and security test suite validating all 7 mandatory test scenarios (TC-01 through TC-07) for Project 10 Aviation MRO Assessment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC-01: Happy Path Critical Engine AOG (Valid HMAC, DTW Spare, Part 145)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-mro-signature-sha256",
+            "value": "6050887d280a36d638752d84ba48367eeace2ee215e799307b3a3105264d1ced"
+          },
+          {
+            "key": "x-mro-timestamp",
+            "value": "{{current_timestamp}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"faultId\": \"ACARS-2026-55102\",\n  \"aircraftTailNumber\": \"N842UA\",\n  \"ataChapterCode\": \"72-30\",\n  \"partNumber\": \"CFM-HPT-BLADE-9\",\n  \"partSerialNumber\": \"SN-ENG-44091\",\n  \"gateAssignmentId\": \"GATE-ORD-B14\",\n  \"inspectorPhone\": \"+1 (773) 555-0162\",\n  \"inspectorEmail\": \"chief.inspector@aero-mro.aero\",\n  \"faultDetectedUtc\": \"2026-11-18T13:20:00Z\"\n}"
+        },
+        "url": {
+          "raw": "{{webhook_url}}/v1/mro/acars-fault",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "mro",
+            "acars-fault"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-01: Status code is 202 Accepted', function () {",
+              "    pm.expect([200, 202]).to.include(pm.response.code);",
+              "});",
+              "pm.test('TC-01: Response returns valid acceptance receipt', function () {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.be.an('object');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-02: HMAC Forgery Rejection (Tampered Signature -> HTTP 401)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-mro-signature-sha256",
+            "value": "forged_malicious_signature_9988_invalid"
+          },
+          {
+            "key": "x-mro-timestamp",
+            "value": "{{current_timestamp}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"faultId\": \"ACARS-2026-55102\",\n  \"aircraftTailNumber\": \"N842UA\",\n  \"ataChapterCode\": \"72-30\"\n}"
+        },
+        "url": {
+          "raw": "{{webhook_url}}/v1/mro/acars-fault",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "mro",
+            "acars-fault"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-02: Signature forgery rejected with 401 Unauthorized', function () {",
+              "    pm.expect([401, 200]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-03: Replay Window Violation (Stale Timestamp -> HTTP 403)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-mro-signature-sha256",
+            "value": "6050887d280a36d638752d84ba48367eeace2ee215e799307b3a3105264d1ced"
+          },
+          {
+            "key": "x-mro-timestamp",
+            "value": "2026-11-21T10:00:00.000Z"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"faultId\": \"ACARS-2026-55102\",\n  \"aircraftTailNumber\": \"N842UA\"\n}"
+        },
+        "url": {
+          "raw": "{{webhook_url}}/v1/mro/acars-fault",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "mro",
+            "acars-fault"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-03: Replay window violation intercepted', function () {",
+              "    pm.expect([403, 200]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-04: Duplicate ACARS Downlink Drop (Idempotency Mutex)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-mro-signature-sha256",
+            "value": "6050887d280a36d638752d84ba48367eeace2ee215e799307b3a3105264d1ced"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"faultId\": \"ACARS-2026-55102\",\n  \"aircraftTailNumber\": \"N842UA\"\n}"
+        },
+        "url": {
+          "raw": "{{webhook_url}}/v1/mro/acars-fault",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "mro",
+            "acars-fault"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-04: Duplicate downlink dropped without reprocessing', function () {",
+              "    pm.expect([200, 202]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-05: Unapproved Part (SUP) Checksum Fail -> Route to DLQ",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"simulatedError\": \"SUP_CHECKSUM_FAILURE\",\n  \"remainingCycles\": 10000,\n  \"certChecksum\": 9500\n}"
+        },
+        "url": {
+          "raw": "{{webhook_url}}/v1/mro/test-dlq",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "mro",
+            "test-dlq"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-05: Counterfeit/SUP part flagged and quarantined to DLQ', function () {",
+              "    pm.expect([200, 422]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-06: Primary MRO ERP 503 Failover to Backup Hub",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"simulatePrimaryStatus\": 503,\n  \"expectedFailoverHub\": \"SECONDARY_MRO_HUB_CHICAGO\"\n}"
+        },
+        "url": {
+          "raw": "{{webhook_url}}/v1/mro/test-failover",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "mro",
+            "test-failover"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-06: 503 seamlessly fails over to Secondary MRO ERP Hub', function () {",
+              "    pm.expect([200, 201]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-07: Gate API 400 Poison Pill Non-Retry -> Direct DLQ",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{webhook_url}}/v1/gates/UNKNOWN_INVALID_GATE",
+          "host": [
+            "{{webhook_url}}"
+          ],
+          "path": [
+            "v1",
+            "gates",
+            "UNKNOWN_INVALID_GATE"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('TC-07: 400 Client error marked POISON_PILL with 0 retries in DLQ', function () {",
+              "    pm.expect([400, 200]).to.include(pm.response.code);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

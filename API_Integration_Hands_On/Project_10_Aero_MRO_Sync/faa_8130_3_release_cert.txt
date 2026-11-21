@@ -1,0 +1,11 @@
+======================================================================
+ FAA FORM 8130-3 - AUTHORIZED RELEASE CERTIFICATE (AIRWORTHINESS)
+======================================================================
+Tracking Number : FAA-8130-551029
+Part Number : CFM-HPT-BLADE-9
+Spare Serial : SN-SPARE-DTW04
+Inspection Date : 10/11/2026
+Status : NEW / AIRWORTHY (PART 145 CERTIFIED)
+Remaining Cycles: 10000
+CERT_CYCLE_CHECKSUM: 10000
+======================================================================
