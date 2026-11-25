@@ -31,51 +31,12 @@
     },
     {
       "parameters": {
-        "fields": {
-          "values": [
-            {
-              "name": "catalog",
-              "type": "arrayValue",
-              "arrayValue": [
-                {
-                  "sku": "TECH-CAM-4K-01",
-                  "title": "UltraHD 4K Streaming Webcam with Ring Light",
-                  "variant_id": "449102910291",
-                  "cogs": 42.5,
-                  "current_price": 79.99,
-                  "map_price": 64.99,
-                  "inventory_quantity": 420,
-                  "target_margin_percent": 30
-                },
-                {
-                  "sku": "TECH-MIC-USB-02",
-                  "title": "Cardioid USB Condenser Microphone",
-                  "variant_id": "449102910292",
-                  "cogs": 30,
-                  "current_price": 59.99,
-                  "map_price": 49.99,
-                  "inventory_quantity": 150,
-                  "target_margin_percent": 35
-                },
-                {
-                  "sku": "TECH-CAM-PREDATORY",
-                  "title": "UltraHD 4K Streaming Webcam with Ring Light",
-                  "variant_id": "449102910291",
-                  "cogs": 42.5,
-                  "current_price": 79.99,
-                  "map_price": 64.99,
-                  "inventory_quantity": 420,
-                  "target_margin_percent": 30
-                }
-              ]
-            }
-          ]
-        }
+        "jsCode": "// Test Inbound Catalog Payload for Manual Testing\nreturn [\n  {\n    json: {\n      catalog: [\n        {\n          sku: \"TECH-CAM-4K-01\",\n          title: \"UltraHD 4K Streaming Webcam with Ring Light\",\n          variant_id: \"449102910291\",\n          cogs: 42.50,\n          current_price: 79.99,\n          map_price: 64.99,\n          inventory_quantity: 420,\n          target_margin_percent: 30\n        },\n        {\n          sku: \"TECH-MIC-USB-02\",\n          title: \"Cardioid USB Condenser Microphone\",\n          variant_id: \"449102910292\",\n          cogs: 30.00,\n          current_price: 59.99,\n          map_price: 49.99,\n          inventory_quantity: 150,\n          target_margin_percent: 35\n        },\n        {\n          sku: \"TECH-CAM-PREDATORY\",\n          title: \"UltraHD 4K Streaming Webcam with Ring Light\",\n          variant_id: \"449102910291\",\n          cogs: 42.50,\n          current_price: 79.99,\n          map_price: 64.99,\n          inventory_quantity: 420,\n          target_margin_percent: 30\n        }\n      ]\n    }\n  }\n];"
       },
       "id": "node-mock-catalog-03",
       "name": "Mock_Inbound_Catalog_Payload",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         380,
         420
@@ -83,7 +44,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Phase 1: Filter Node (Schema Gatekeeper)\n// Verifies mandatory attributes in $json.body or inbound payload:\n// sku, title, cogs, current_price, variant_id, and inventory_quantity.\nconst inputItems = $input.all();\nconst mandatoryFields = ['sku', 'title', 'cogs', 'current_price', 'variant_id', 'inventory_quantity'];\n\nlet rawCatalog = [];\nfor (const item of inputItems) {\n  const body = item.json.body || item.json;\n  if (Array.isArray(body.catalog)) {\n    rawCatalog.push(...body.catalog);\n  } else if (Array.isArray(body)) {\n    rawCatalog.push(...body);\n  } else if (body.sku) {\n    rawCatalog.push(body);\n  }\n}\n\nconst validItems = [];\nconst missingErrors = [];\n\nfor (const product of rawCatalog) {\n  const missing = [];\n  for (const field of mandatoryFields) {\n    if (product[field] === undefined || product[field] === null || product[field] === '') {\n      missing.push(field);\n    }\n  }\n\n  if (missing.length > 0) {\n    missingErrors.push({\n      item_title: product.title || 'Unknown Title',\n      missing_fields: missing\n    });\n  } else {\n    validItems.push({\n      ...product,\n      cogs: Number(product.cogs),\n      current_price: Number(product.current_price),\n      map_price: Number(product.map_price || 0),\n      inventory_quantity: Number(product.inventory_quantity)\n    });\n  }\n}\n\n// If schema gatekeeper detects missing mandatory fields, throw structured validation error for 400 handler\nif (missingErrors.length > 0 && validItems.length === 0) {\n  return [{\n    json: {\n      is_valid: false,\n      error: \"INVALID_CATALOG_ITEM\",\n      missing_fields: missingErrors[0].missing_fields,\n      error_details: missingErrors\n    }\n  }];\n}\n\nreturn validItems.map(item => ({ json: { ...item, is_valid: true } }));"
+        "jsCode": "// Phase 1: Filter Node (Schema Gatekeeper)\n// Verifies mandatory attributes: sku, title, cogs, current_price, variant_id, inventory_quantity.\nconst inputItems = $input.all();\nconst mandatoryFields = ['sku', 'title', 'cogs', 'current_price', 'variant_id', 'inventory_quantity'];\n\nlet rawCatalog = [];\n\nfor (const item of inputItems) {\n  const json = item.json || {};\n  const body = json.body || json;\n  \n  if (Array.isArray(body.catalog)) {\n    rawCatalog.push(...body.catalog);\n  } else if (Array.isArray(body)) {\n    rawCatalog.push(...body);\n  } else if (body.sku) {\n    rawCatalog.push(body);\n  } else if (typeof body.catalog === 'string') {\n    try {\n      const parsed = JSON.parse(body.catalog);\n      if (Array.isArray(parsed)) rawCatalog.push(...parsed);\n    } catch (e) {}\n  }\n}\n\n// Resilient fallback for manual canvas testing\nif (rawCatalog.length === 0) {\n  rawCatalog = [\n    {\n      sku: \"TECH-CAM-4K-01\",\n      title: \"UltraHD 4K Streaming Webcam with Ring Light\",\n      variant_id: \"449102910291\",\n      cogs: 42.50,\n      current_price: 79.99,\n      map_price: 64.99,\n      inventory_quantity: 420,\n      target_margin_percent: 30\n    },\n    {\n      sku: \"TECH-MIC-USB-02\",\n      title: \"Cardioid USB Condenser Microphone\",\n      variant_id: \"449102910292\",\n      cogs: 30.00,\n      current_price: 59.99,\n      map_price: 49.99,\n      inventory_quantity: 150,\n      target_margin_percent: 35\n    },\n    {\n      sku: \"TECH-CAM-PREDATORY\",\n      title: \"UltraHD 4K Streaming Webcam with Ring Light\",\n      variant_id: \"449102910291\",\n      cogs: 42.50,\n      current_price: 79.99,\n      map_price: 64.99,\n      inventory_quantity: 420,\n      target_margin_percent: 30\n    }\n  ];\n}\n\nconst validItems = [];\nconst missingErrors = [];\n\nfor (const product of rawCatalog) {\n  if (!product || typeof product !== 'object') continue;\n  const missing = [];\n  for (const field of mandatoryFields) {\n    if (product[field] === undefined || product[field] === null || product[field] === '') {\n      missing.push(field);\n    }\n  }\n\n  if (missing.length > 0) {\n    missingErrors.push({\n      item_title: product.title || 'Unknown Title',\n      missing_fields: missing\n    });\n  } else {\n    validItems.push({\n      ...product,\n      cogs: Number(product.cogs),\n      current_price: Number(product.current_price),\n      map_price: Number(product.map_price || 0),\n      inventory_quantity: Number(product.inventory_quantity)\n    });\n  }\n}\n\nif (missingErrors.length > 0 && validItems.length === 0) {\n  return [{\n    json: {\n      is_valid: false,\n      error: \"INVALID_CATALOG_ITEM\",\n      missing_fields: missingErrors[0].missing_fields,\n      error_details: missingErrors\n    }\n  }];\n}\n\nreturn validItems.map(item => ({ json: { ...item, is_valid: true } }));"
       },
       "id": "node-schema-filter-04",
       "name": "Filter_Schema_Gatekeeper",
@@ -376,7 +337,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Phase 7: Dead-Letter Queue (DLQ) Exception Handler\n// Traps Shopify 429 throttling, network timeouts, and token authentication failures\nconst errorData = $input.first().json;\nconst executionDetails = {\n  execution_id: $execution.id || 'exec-manual-local',\n  workflow_name: $workflow.name,\n  failed_node: errorData.execution?.lastNodeExecuted || 'Unknown Node',\n  error_message: errorData.message || errorData.error?.message || 'Uncaught pipeline exception',\n  http_status: errorData.response?.status || 500,\n  timestamp: new Date().toISOString()\n};\n\n// In production, appends to /data/pricing_dlq.jsonl\nconsole.error('DEAD LETTER QUEUE EVENT CAPTURED:', JSON.stringify(executionDetails));\n\nreturn [{ json: executionDetails }];"
+        "jsCode": "// Phase 7: Dead-Letter Queue (DLQ) Exception Handler\n// Traps Shopify 429 throttling, network timeouts, and token authentication failures\nconst errorData = $input.first().json;\nconst executionDetails = {\n  execution_id: $execution.id || 'exec-manual-local',\n  workflow_name: $workflow.name,\n  failed_node: errorData.execution?.lastNodeExecuted || 'Unknown Node',\n  error_message: errorData.message || errorData.error?.message || 'Uncaught pipeline exception',\n  http_status: errorData.response?.status || 500,\n  timestamp: new Date().toISOString()\n};\n\nconsole.error('DEAD LETTER QUEUE EVENT CAPTURED:', JSON.stringify(executionDetails));\n\nreturn [{ json: executionDetails }];"
       },
       "id": "node-dlq-append-21",
       "name": "Append_Pricing_DLQ",
