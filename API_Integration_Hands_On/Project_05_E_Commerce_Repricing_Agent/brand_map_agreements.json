@@ -1,0 +1,27 @@
+{
+  "version": "2026.1",
+  "effective_date": "2026-01-01",
+  "vendor_policies": [
+    {
+      "category": "Electronics",
+      "policy": "Strict Minimum Advertised Price (MAP) adherence required by manufacturer contract. Maximum allowable undercut against competitor is $2.00, provided the final price remains at or above MAP.",
+      "map_enforced": true,
+      "max_discount_vs_competitor": 2,
+      "min_margin_cogs_multiplier": 1.15
+    },
+    {
+      "category": "Apparel",
+      "policy": "Dynamic clearance discounting permitted. Repricing engine allowed to discount aggressively down to COGS + 10% to liquidate seasonal inventory.",
+      "map_enforced": false,
+      "max_discount_vs_competitor": 15,
+      "min_margin_cogs_multiplier": 1.1
+    },
+    {
+      "category": "Home & Garden",
+      "policy": "Standard margin protection. Prices must maintain at least COGS + 15% floor unless promotional waiver is active.",
+      "map_enforced": true,
+      "max_discount_vs_competitor": 5,
+      "min_margin_cogs_multiplier": 1.15
+    }
+  ]
+}

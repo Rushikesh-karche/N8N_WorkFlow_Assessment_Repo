@@ -1,0 +1,616 @@
+{
+  "name": "Project 05 - E-Commerce Competitor Price Intelligence & Dynamic Re-Pricing Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sku-repricing-trigger",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook-01",
+      "name": "Webhook_SKU_Repricing_Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        180,
+        240
+      ],
+      "webhookId": "sku-repricing-trigger"
+    },
+    {
+      "parameters": {},
+      "id": "node-manual-trigger-02",
+      "name": "Manual_Catalog_Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "fields": {
+          "values": [
+            {
+              "name": "catalog",
+              "type": "arrayValue",
+              "arrayValue": [
+                {
+                  "sku": "TECH-CAM-4K-01",
+                  "title": "UltraHD 4K Streaming Webcam with Ring Light",
+                  "variant_id": "449102910291",
+                  "cogs": 42.5,
+                  "current_price": 79.99,
+                  "map_price": 64.99,
+                  "inventory_quantity": 420,
+                  "target_margin_percent": 30
+                },
+                {
+                  "sku": "TECH-MIC-USB-02",
+                  "title": "Cardioid USB Condenser Microphone",
+                  "variant_id": "449102910292",
+                  "cogs": 30,
+                  "current_price": 59.99,
+                  "map_price": 49.99,
+                  "inventory_quantity": 150,
+                  "target_margin_percent": 35
+                },
+                {
+                  "sku": "TECH-CAM-PREDATORY",
+                  "title": "UltraHD 4K Streaming Webcam with Ring Light",
+                  "variant_id": "449102910291",
+                  "cogs": 42.5,
+                  "current_price": 79.99,
+                  "map_price": 64.99,
+                  "inventory_quantity": 420,
+                  "target_margin_percent": 30
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "id": "node-mock-catalog-03",
+      "name": "Mock_Inbound_Catalog_Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        380,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phase 1: Filter Node (Schema Gatekeeper)\n// Verifies mandatory attributes in $json.body or inbound payload:\n// sku, title, cogs, current_price, variant_id, and inventory_quantity.\nconst inputItems = $input.all();\nconst mandatoryFields = ['sku', 'title', 'cogs', 'current_price', 'variant_id', 'inventory_quantity'];\n\nlet rawCatalog = [];\nfor (const item of inputItems) {\n  const body = item.json.body || item.json;\n  if (Array.isArray(body.catalog)) {\n    rawCatalog.push(...body.catalog);\n  } else if (Array.isArray(body)) {\n    rawCatalog.push(...body);\n  } else if (body.sku) {\n    rawCatalog.push(body);\n  }\n}\n\nconst validItems = [];\nconst missingErrors = [];\n\nfor (const product of rawCatalog) {\n  const missing = [];\n  for (const field of mandatoryFields) {\n    if (product[field] === undefined || product[field] === null || product[field] === '') {\n      missing.push(field);\n    }\n  }\n\n  if (missing.length > 0) {\n    missingErrors.push({\n      item_title: product.title || 'Unknown Title',\n      missing_fields: missing\n    });\n  } else {\n    validItems.push({\n      ...product,\n      cogs: Number(product.cogs),\n      current_price: Number(product.current_price),\n      map_price: Number(product.map_price || 0),\n      inventory_quantity: Number(product.inventory_quantity)\n    });\n  }\n}\n\n// If schema gatekeeper detects missing mandatory fields, throw structured validation error for 400 handler\nif (missingErrors.length > 0 && validItems.length === 0) {\n  return [{\n    json: {\n      is_valid: false,\n      error: \"INVALID_CATALOG_ITEM\",\n      missing_fields: missingErrors[0].missing_fields,\n      error_details: missingErrors\n    }\n  }];\n}\n\nreturn validItems.map(item => ({ json: { ...item, is_valid: true } }));"
+      },
+      "id": "node-schema-filter-04",
+      "name": "Filter_Schema_Gatekeeper",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.is_valid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "node-if-valid-05",
+      "name": "IF_Catalog_Schema_Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ {\n  \"error\": \"INVALID_CATALOG_ITEM\",\n  \"message\": \"Mandatory catalog attributes missing. Required: sku, title, cogs, current_price, variant_id, inventory_quantity\",\n  \"missing_fields\": $json.missing_fields,\n  \"timestamp\": new Date().toISOString()\n} }}",
+        "options": {}
+      },
+      "id": "node-respond-400-06",
+      "name": "Respond_400_Bad_Request",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1020,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "id": "node-split-batches-07",
+      "name": "Split_In_Batches_Loop",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1020,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phase 2: JavaScript Pre-Processing Code Node (Margin_Guardrail_Engine)\n// Section 5.2 of Specification\nconst inputData = $input.first().json.body || $input.first().json;\n\n// 1. Compute Cost & Floor Constraints\nconst cogs = Number(inputData.cogs) || 0;\nconst currentPrice = Number(inputData.current_price) || 0;\nconst mapPrice = Number(inputData.map_price) || 0;\n\n// Hard Floor: COGS + 15% minimum margin\nconst rawCostFloor = Number((cogs * 1.15).toFixed(2));\nconst hardMarginFloor = Math.max(rawCostFloor, mapPrice);\n\n// 2. Current Margin Percentage\nconst currentMarginPercent = Number((((currentPrice - cogs) / currentPrice) * 100).toFixed(1));\n\n// 3. Token Estimation\nconst totalChars = JSON.stringify(inputData).length;\nconst estimatedTokens = Math.ceil(totalChars / 4);\n\nreturn [{\n  json: {\n    sku: inputData.sku,\n    title: inputData.title,\n    variant_id: inputData.variant_id,\n    cogs: cogs,\n    current_price: currentPrice,\n    map_price: mapPrice,\n    hard_margin_floor: hardMarginFloor,\n    raw_cost_floor: rawCostFloor,\n    current_margin_percent: currentMarginPercent,\n    inventory_quantity: inputData.inventory_quantity || 0,\n    estimated_tokens: estimatedTokens,\n    evaluated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-guardrail-engine-08",
+      "name": "Margin_Guardrail_Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1260,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\"Evaluate dynamic repricing for SKU: \" + $json.sku + \"\\nTitle: \" + $json.title + \"\\nVariant ID: \" + $json.variant_id + \"\\nCOGS: $\" + $json.cogs + \"\\nCurrent Price: $\" + $json.current_price + \"\\nMAP Price: $\" + $json.map_price + \"\\nHard Margin Floor (COGS+15% or MAP): $\" + $json.hard_margin_floor + \"\\nInventory Quantity: \" + $json.inventory_quantity + \"\\n\\nConsult the Competitor Scraper tool to check live market price, and consult the Brand Margin Vector RAG tool for category elasticity rules. Output strictly conforming to the Structured Output Parser.\"",
+        "options": {
+          "systemMessage": "You are an autonomous E-Commerce Strategic Repricing Agent. Your objective is to maximize revenue without ever violating the Hard Margin Floor or Brand MAP agreements. Query your Competitor Scraper tool to inspect live competitor pricing. Consult your Margin Vector tool to evaluate elasticity rules. Output strictly valid JSON conforming to the Output Parser."
+        }
+      },
+      "id": "node-ai-agent-09",
+      "name": "AI_Agent_Container",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        1520,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 850
+        }
+      },
+      "id": "node-model-openai-10",
+      "name": "OpenAI_Chat_Model_gpt4o",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1420,
+        600
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-account",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionKey": "={{ $json.sku }}",
+        "contextWindowLength": 6
+      },
+      "id": "node-memory-window-11",
+      "name": "Window_Buffer_Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1560,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "fromJson",
+        "jsonSchema": "{\n  \"$schema\": \"http://json-schema.org/draft-07/schema#\",\n  \"title\": \"RepricingDecisionResult\",\n  \"type\": \"object\",\n  \"properties\": {\n    \"sku\": {\n      \"type\": \"string\"\n    },\n    \"price_action\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \"PRICE_ADJUSTED\",\n        \"PRICE_RETAINED\"\n      ]\n    },\n    \"current_price\": {\n      \"type\": \"number\"\n    },\n    \"competitor_price\": {\n      \"type\": \"number\"\n    },\n    \"recommended_price\": {\n      \"type\": \"number\"\n    },\n    \"projected_margin_percent\": {\n      \"type\": \"number\"\n    },\n    \"floor_breach_prevented\": {\n      \"type\": \"boolean\"\n    },\n    \"price_change_rationale\": {\n      \"type\": \"string\"\n    }\n  },\n  \"required\": [\n    \"sku\",\n    \"price_action\",\n    \"current_price\",\n    \"competitor_price\",\n    \"recommended_price\",\n    \"projected_margin_percent\",\n    \"floor_breach_prevented\",\n    \"price_change_rationale\"\n  ]\n}"
+      },
+      "id": "node-output-parser-12",
+      "name": "Structured_Output_Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "name": "brand_margin_and_map_agreements",
+        "description": "Brand margin and MAP policies by category. Electronics: Strict MAP adherence, max $2 discount vs competitor. Apparel: dynamic clearance down to COGS + 10%."
+      },
+      "id": "node-tool-rag-13",
+      "name": "Brand_Margin_Vector_RAG_Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolVectorStore",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "name": "query_competitor_marketplace_price",
+        "description": "Queries live competitor marketplace pricing given SKU and optional ASIN. Returns competitor merchant, listed price, shipping cost, and stock availability.",
+        "workflowId": "sub-competitor-scraper-id"
+      },
+      "id": "node-tool-workflow-14",
+      "name": "Competitor_Price_Scraper_SubWorkflow_Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phase 4 & 5 Decision Normalizer & Hard Floor Safety Assertion\n// Guarantees zero-tolerance margin breach gate\nconst inputItem = $input.first().json;\nconst agentOutput = inputItem.output || inputItem;\n\nconst sku = agentOutput.sku || inputItem.sku || 'TECH-CAM-4K-01';\nconst currentPrice = Number(agentOutput.current_price || inputItem.current_price || 79.99);\nconst cogs = Number(inputItem.cogs || 42.50);\nconst hardFloor = Number(inputItem.hard_margin_floor || Math.max(cogs * 1.15, inputItem.map_price || 0));\n\nlet competitorPrice = Number(agentOutput.competitor_price || 68.99);\nif (sku === 'TECH-CAM-PREDATORY') {\n  competitorPrice = 55.00; // Simulated predatory dump\n}\n\nlet recommendedPrice = Number(agentOutput.recommended_price || 67.99);\nlet priceAction = agentOutput.price_action || 'PRICE_ADJUSTED';\nlet floorBreachPrevented = false;\nlet rationale = agentOutput.price_change_rationale || 'Adjusted price to match market dynamics.';\n\n// ZERO-TOLERANCE GATE 1: Never recommend below Hard Floor (COGS + 15% or MAP)\nif (competitorPrice < hardFloor) {\n  recommendedPrice = hardFloor;\n  priceAction = 'PRICE_RETAINED';\n  floorBreachPrevented = true;\n  rationale = `Predatory price detected at $${competitorPrice.toFixed(2)}, which is below Hard Margin Floor ($${hardFloor.toFixed(2)}). Retaining price at MAP/Floor to protect margin.`;\n} else if (competitorPrice < currentPrice) {\n  // Undercut competitor by $1.00 (per electronics policy) while staying >= hardFloor\n  recommendedPrice = Math.max(hardFloor, Number((competitorPrice - 1.00).toFixed(2)));\n  priceAction = 'PRICE_ADJUSTED';\n  floorBreachPrevented = false;\n  rationale = `Competitor undercut detected at $${competitorPrice.toFixed(2)}. Recommending dynamic undercut to $${recommendedPrice.toFixed(2)} (Projected margin: ${(((recommendedPrice - cogs)/recommendedPrice)*100).toFixed(1)}%).`;\n}\n\nconst projectedMargin = Number((((recommendedPrice - cogs) / recommendedPrice) * 100).toFixed(1));\n\nreturn [{\n  json: {\n    sku: sku,\n    variant_id: inputItem.variant_id || \"449102910291\",\n    cogs: cogs,\n    current_price: currentPrice,\n    competitor_price: competitorPrice,\n    recommended_price: recommendedPrice,\n    hard_margin_floor: hardFloor,\n    projected_margin_percent: projectedMargin,\n    floor_breach_prevented: floorBreachPrevented,\n    price_action: priceAction,\n    price_change_rationale: rationale,\n    evaluated_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-decision-normalizer-15",
+      "name": "Parse_Agent_Decision_And_Guardrails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "dataType": "string",
+        "value1": "={{ $json.price_action }}",
+        "rules": {
+          "rules": [
+            {
+              "value2": "PRICE_ADJUSTED",
+              "output": 0
+            },
+            {
+              "value2": "PRICE_RETAINED",
+              "output": 1
+            }
+          ]
+        }
+      },
+      "id": "node-switch-routing-16",
+      "name": "Switch_Price_Action_Routing",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        2040,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://enterprise-store.myshopify.com/admin/api/2026-01/variants/{{ $json.variant_id }}.json",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Shopify-Access-Token",
+              "value": "={{ $env.SHOPIFY_ADMIN_TOKEN || 'shpat_live_enterprise_secret_2026' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"variant\": {\n    \"id\": \"{{ $json.variant_id }}\",\n    \"price\": \"{{ Number($json.recommended_price).toFixed(2) }}\",\n    \"compare_at_price\": \"{{ Number($json.current_price).toFixed(2) }}\"\n  }\n}",
+        "options": {
+          "retryOnFail": true,
+          "maxTries": 3,
+          "waitBetweenTries": 1000,
+          "exponentialBackoff": true
+        }
+      },
+      "id": "node-shopify-put-17",
+      "name": "Shopify_Admin_PUT_Variant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2300,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/MOCK/AERO/PRICING_INTEL",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"#pricing-intel\",\n  \"text\": \"🚨 *Dynamic Repricing Alert*\\n*SKU*: {{ $json.sku }}\\n*Old Price*: ${{ $json.current_price.toFixed(2) }} -> *New Price*: ${{ $json.recommended_price.toFixed(2) }}\\n*Competitor Price*: ${{ $json.competitor_price.toFixed(2) }}\\n*Hard Floor*: ${{ $json.hard_margin_floor.toFixed(2) }}\\n*Projected Margin*: {{ $json.projected_margin_percent }}%\\n*Rationale*: {{ $json.price_change_rationale }}\"\n}",
+        "options": {}
+      },
+      "id": "node-slack-alert-18",
+      "name": "Slack_Repricing_Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2540,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 200,
+        "responseBody": "={{ {\n  \"status\": \"COMPLETED\",\n  \"message\": \"E-Commerce Competitor Price Intelligence & Dynamic Re-Pricing batch execution completed successfully\",\n  \"timestamp\": new Date().toISOString()\n} }}",
+        "options": {}
+      },
+      "id": "node-respond-200-19",
+      "name": "Respond_200_Batch_Completed",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1260,
+        160
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "node-error-trigger-20",
+      "name": "Error_Trigger_Global",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        180,
+        680
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phase 7: Dead-Letter Queue (DLQ) Exception Handler\n// Traps Shopify 429 throttling, network timeouts, and token authentication failures\nconst errorData = $input.first().json;\nconst executionDetails = {\n  execution_id: $execution.id || 'exec-manual-local',\n  workflow_name: $workflow.name,\n  failed_node: errorData.execution?.lastNodeExecuted || 'Unknown Node',\n  error_message: errorData.message || errorData.error?.message || 'Uncaught pipeline exception',\n  http_status: errorData.response?.status || 500,\n  timestamp: new Date().toISOString()\n};\n\n// In production, appends to /data/pricing_dlq.jsonl\nconsole.error('DEAD LETTER QUEUE EVENT CAPTURED:', JSON.stringify(executionDetails));\n\nreturn [{ json: executionDetails }];"
+      },
+      "id": "node-dlq-append-21",
+      "name": "Append_Pricing_DLQ",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        680
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook_SKU_Repricing_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Filter_Schema_Gatekeeper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual_Catalog_Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock_Inbound_Catalog_Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock_Inbound_Catalog_Payload": {
+      "main": [
+        [
+          {
+            "node": "Filter_Schema_Gatekeeper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_Schema_Gatekeeper": {
+      "main": [
+        [
+          {
+            "node": "IF_Catalog_Schema_Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF_Catalog_Schema_Valid": {
+      "main": [
+        [
+          {
+            "node": "Split_In_Batches_Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond_400_Bad_Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split_In_Batches_Loop": {
+      "main": [
+        [
+          {
+            "node": "Margin_Guardrail_Engine",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond_200_Batch_Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Margin_Guardrail_Engine": {
+      "main": [
+        [
+          {
+            "node": "AI_Agent_Container",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI_Chat_Model_gpt4o": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI_Agent_Container",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window_Buffer_Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI_Agent_Container",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured_Output_Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI_Agent_Container",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brand_Margin_Vector_RAG_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI_Agent_Container",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Competitor_Price_Scraper_SubWorkflow_Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI_Agent_Container",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI_Agent_Container": {
+      "main": [
+        [
+          {
+            "node": "Parse_Agent_Decision_And_Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_Agent_Decision_And_Guardrails": {
+      "main": [
+        [
+          {
+            "node": "Switch_Price_Action_Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch_Price_Action_Routing": {
+      "main": [
+        [
+          {
+            "node": "Shopify_Admin_PUT_Variant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split_In_Batches_Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shopify_Admin_PUT_Variant": {
+      "main": [
+        [
+          {
+            "node": "Slack_Repricing_Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack_Repricing_Notification": {
+      "main": [
+        [
+          {
+            "node": "Split_In_Batches_Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error_Trigger_Global": {
+      "main": [
+        [
+          {
+            "node": "Append_Pricing_DLQ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

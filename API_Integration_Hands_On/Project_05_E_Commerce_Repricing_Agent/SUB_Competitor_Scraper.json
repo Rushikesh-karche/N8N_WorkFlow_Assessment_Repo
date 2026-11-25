@@ -1,0 +1,46 @@
+{
+  "name": "SUB_Competitor_Scraper",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "sub-trigger-01",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sub-Workflow: Competitor Marketplace Live Price Scraper\nconst inputData = $input.first().json;\nconst sku = inputData.sku || inputData.query || 'UNKNOWN_SKU';\nconst asin = inputData.asin || 'B09DEFAULT';\n\n// Real-world simulated competitor marketplace prices based on SKU\nlet result = {\n  merchant: \"Apex Retail\",\n  listed_price: 68.99,\n  shipping_cost: 0.00,\n  stock_status: \"IN_STOCK\",\n  asin: asin,\n  sku: sku,\n  currency: \"USD\",\n  scraped_at: new Date().toISOString()\n};\n\nif (sku === 'TECH-CAM-PREDATORY' || sku.includes('PREDATORY')) {\n  result.merchant = \"BargainHunter Direct\";\n  result.listed_price = 55.00;\n  result.shipping_cost = 0.00;\n  result.stock_status = \"IN_STOCK\";\n} else if (sku === 'TECH-MIC-USB-02') {\n  result.merchant = \"AudioPro Marketplace\";\n  result.listed_price = 54.50;\n  result.shipping_cost = 4.99;\n  result.stock_status = \"IN_STOCK\";\n}\n\nreturn [{ json: result }];"
+      },
+      "id": "sub-scraper-code-02",
+      "name": "Mock Competitor Marketplace Scraper",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock Competitor Marketplace Scraper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

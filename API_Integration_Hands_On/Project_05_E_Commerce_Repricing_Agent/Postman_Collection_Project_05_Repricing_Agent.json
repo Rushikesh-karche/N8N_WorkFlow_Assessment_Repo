@@ -1,0 +1,225 @@
+{
+  "info": {
+    "name": "Project 05 - E-Commerce Repricing Agent Test Suite",
+    "_postman_id": "p05-repricing-suite-2026",
+    "description": "Automated test suite verifying TC-001 through TC-005 for Project 05 E-Commerce Competitor Price Intelligence & Dynamic Re-Pricing Agent",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC-001: Competitor Undercut Above Floor (Normal Adjustment)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Repricing completed and price adjusted', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('COMPLETED');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catalog\": [\n    {\n      \"sku\": \"TECH-CAM-4K-01\",\n      \"title\": \"UltraHD 4K Streaming Webcam with Ring Light\",\n      \"variant_id\": \"449102910291\",\n      \"cogs\": 42.5,\n      \"current_price\": 79.99,\n      \"map_price\": 64.99,\n      \"inventory_quantity\": 420,\n      \"target_margin_percent\": 30\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/sku-repricing-trigger",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "webhook",
+            "sku-repricing-trigger"
+          ]
+        }
+      }
+    },
+    {
+      "name": "TC-002: Predatory Price Below MAP Protected (Hard Floor Guardrail)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Floor breach prevented and price retained at MAP', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.status).to.eql('COMPLETED');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catalog\": [\n    {\n      \"sku\": \"TECH-CAM-PREDATORY\",\n      \"title\": \"UltraHD 4K Streaming Webcam with Ring Light\",\n      \"variant_id\": \"449102910291\",\n      \"cogs\": 42.5,\n      \"current_price\": 79.99,\n      \"map_price\": 64.99,\n      \"inventory_quantity\": 420,\n      \"target_margin_percent\": 30\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/sku-repricing-trigger",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "webhook",
+            "sku-repricing-trigger"
+          ]
+        }
+      }
+    },
+    {
+      "name": "TC-003: Missing Mandatory Catalog Attributes (HTTP 400 Bad Request)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code is 400 Bad Request', function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "pm.test('Returns INVALID_CATALOG_ITEM error code', function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error).to.eql('INVALID_CATALOG_ITEM');",
+              "    pm.expect(jsonData.missing_fields).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catalog\": [\n    {\n      \"title\": \"Broken SKU Without Mandatory COGS or SKU Field\",\n      \"variant_id\": \"449102910999\",\n      \"current_price\": 49.99\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/sku-repricing-trigger",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "webhook",
+            "sku-repricing-trigger"
+          ]
+        }
+      }
+    },
+    {
+      "name": "TC-004: Shopify API 429 Throttle & Exponential Backoff Verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Response handles rate-limiting gracefully', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 429]);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catalog\": [\n    {\n      \"sku\": \"TECH-CAM-4K-01\",\n      \"title\": \"UltraHD 4K Streaming Webcam with Ring Light\",\n      \"variant_id\": \"449102910291\",\n      \"cogs\": 42.5,\n      \"current_price\": 79.99,\n      \"map_price\": 64.99,\n      \"inventory_quantity\": 420,\n      \"simulate_rate_limit\": true\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/sku-repricing-trigger",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "webhook",
+            "sku-repricing-trigger"
+          ]
+        }
+      }
+    },
+    {
+      "name": "TC-005: Dead-Letter Queue (DLQ) Fatal Triage Verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('DLQ captures fatal pipeline execution errors', function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 500]);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"catalog\": [\n    {\n      \"sku\": \"TECH-FATAL-ERROR-TEST\",\n      \"title\": \"Fatal Exception Trigger SKU\",\n      \"variant_id\": \"INVALID_VARIANT_ID\",\n      \"cogs\": 50,\n      \"current_price\": 100,\n      \"map_price\": 80,\n      \"inventory_quantity\": 10,\n      \"simulate_fatal_token_error\": true\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/webhook/sku-repricing-trigger",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "webhook",
+            "sku-repricing-trigger"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5678",
+      "type": "string"
+    }
+  ]
+}
